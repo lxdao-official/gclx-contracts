@@ -14,7 +14,7 @@
 运行下面命令：
 
 ```
-git clone https://github.com/GuoChanLiangXin/gclx-contract.git
+git clone https://github.com/GuoChanLiangXin/gclx-contracts.git
 cd gclx-contracts
 npm install
 ```

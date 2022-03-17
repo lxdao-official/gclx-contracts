@@ -37,6 +37,10 @@ npm install
 7. Verify 验证主网合约。
 8. 设置对应合约状态，开启 Mint 等。
 
+### 测试命令
+
+`npx hardhat test`
+
 ### 编译命令
 
 `npx hardhat compile`

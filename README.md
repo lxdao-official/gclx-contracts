@@ -14,7 +14,7 @@
 运行下面命令：
 
 ```
-git clone https://github.com/GuoChanLiangXin/gclx-contract.git
+git clone https://github.com/GuoChanLiangXin/gclx-contracts.git
 cd gclx-contracts
 npm install
 ```
@@ -36,6 +36,10 @@ npm install
 6. 测试完成后，修改配置部署到 Mainnet 主网。此时的 ETH 是真金白银，可能需要等待一段时间，大概 0.2 ETH 左右。
 7. Verify 验证主网合约。
 8. 设置对应合约状态，开启 Mint 等。
+
+### 测试命令
+
+`npx hardhat test`
 
 ### 编译命令
 

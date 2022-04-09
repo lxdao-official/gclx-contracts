@@ -8,7 +8,8 @@ contract GCLX is ERC721A, Ownable {
     enum Status {
         Waiting,
         Started,
-        Finished
+        Finished,
+        AllowListOnly
     }
 
     Status public status;
@@ -16,6 +17,8 @@ contract GCLX is ERC721A, Ownable {
     uint256 public constant MAX_MINT_PER_ADDR = 2;
     uint256 public constant MAX_SUPPLY = 1000;
     uint256 public constant PRICE = 0.01 * 10**18; // 0.01 ETH
+    
+    mapping(address => uint256) public allowlist;
 
     event Minted(address minter, uint256 amount);
     event StatusChanged(Status status);
@@ -46,6 +49,32 @@ contract GCLX is ERC721A, Ownable {
 
         emit Minted(msg.sender, quantity);
     }
+
+    function allowlistMint(uint256 quantity) external payable{
+        require(allowlist[msg.sender] > 0, "GCLX: Ni bu zai bai min dan li.");
+        require(status == Status.Started || status == Status.AllowListOnly, "GCLX: Hai mei kai shi.");
+        require(tx.origin == msg.sender, "GCLX: Bu yun xu he yue diao yong.");
+        require(
+            quantity <= allowlist[msg.sender],
+            "GCLX: Nin tai tan xin le."
+        );
+        require(
+            totalSupply() + quantity <= MAX_SUPPLY,
+            "GCLX: Mei zhe me duo le."
+        );
+        allowlist[msg.sender]=allowlist[msg.sender]-quantity;
+        _safeMint(msg.sender, quantity);
+        refundIfOver(PRICE * quantity);
+
+        emit Minted(msg.sender, quantity);
+   }
+
+    function seedAllowlist(address[] memory addresses, uint256[] memory numSlots) external onlyOwner{
+        require( addresses.length == numSlots.length, "GCLX: di zhi bu dui.");
+        for (uint256 i = 0; i < addresses.length; i++) {
+        allowlist[addresses[i]] = numSlots[i];
+        }
+   }
 
     function numberMinted(address owner) public view returns (uint256) {
         return _numberMinted(owner);

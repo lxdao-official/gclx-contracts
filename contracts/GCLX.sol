@@ -2,6 +2,7 @@
 pragma solidity ^0.8.2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "erc721a/contracts/ERC721A.sol";
 
 contract GCLX is ERC721A, Ownable {
@@ -15,10 +16,13 @@ contract GCLX is ERC721A, Ownable {
     Status public status;
     string public baseURI;
     uint256 public constant MAX_MINT_PER_ADDR = 2;
+    uint256 public constant MAX_MINT_ALLOWLIST = 2;
     uint256 public constant MAX_SUPPLY = 1000;
     uint256 public constant PRICE = 0.01 * 10**18; // 0.01 ETH
+    bytes32 public merkleRoot;
 
     mapping(address => uint256) public allowlist;
+    mapping(address => bool) public allowlistClaimed;
 
     event Minted(address minter, uint256 amount);
     event StatusChanged(Status status);
@@ -79,6 +83,30 @@ contract GCLX is ERC721A, Ownable {
         }
     }
 
+    function allowlistMintMerkleProof(
+        uint256 quantity,
+        bytes32[] calldata _merkleProof
+    ) external payable {
+        require(
+            status == Status.Started || status == Status.AllowListOnly,
+            "GCLX: Hai mei kai shi."
+        );
+        require(tx.origin == msg.sender, "GCLX: Bu yun xu he yue diao yong.");
+        require(quantity <= MAX_MINT_ALLOWLIST, "GCLX: Nin tai tan xin le.");
+        require(
+            totalSupply() + quantity <= MAX_SUPPLY,
+            "GCLX: Mei zhe me duo le."
+        );
+        require(!(allowlistClaimed[_msgSender()]), "GCLX: Ling Guo Le.");
+        bytes32 leaf = keccak256(abi.encodePacked(_msgSender()));
+        require(
+            MerkleProof.verify(_merkleProof, merkleRoot, leaf),
+            "GCLX: Ni bu zai bai ming dan li."
+        );
+        allowlistClaimed[_msgSender()] = true;
+        _safeMint(_msgSender(), quantity);
+    }
+
     function numberMinted(address owner) public view returns (uint256) {
         return _numberMinted(owner);
     }
@@ -98,6 +126,10 @@ contract GCLX is ERC721A, Ownable {
     function setBaseURI(string calldata newBaseURI) external onlyOwner {
         baseURI = newBaseURI;
         emit BaseURIChanged(newBaseURI);
+    }
+
+    function setMerkleRoot(bytes32 _merkleRoot) public onlyOwner {
+        merkleRoot = _merkleRoot;
     }
 
     function withdraw(address payable recipient) external onlyOwner {

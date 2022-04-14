@@ -15,18 +15,19 @@ contract GCLX is ERC721A, Ownable {
 
     Status public status;
     string public baseURI;
+    bytes32 public merkleRoot;
     uint256 public constant MAX_MINT_PER_ADDR = 2;
     uint256 public constant MAX_MINT_ALLOWLIST = 2;
     uint256 public constant MAX_SUPPLY = 1000;
     uint256 public constant PRICE = 0.01 * 10**18; // 0.01 ETH
-    bytes32 public merkleRoot;
 
     mapping(address => uint256) public allowlist;
-    mapping(address => bool) public allowlistClaimed;
+    mapping(address => uint256) public allowlistClaimed;
 
     event Minted(address minter, uint256 amount);
     event StatusChanged(Status status);
     event BaseURIChanged(string newBaseURI);
+    event MerkleRootChanged(bytes32 merkleRoot);
 
     constructor(string memory initBaseURI) ERC721A("GuoChanLiangXin", "GCLX") {
         baseURI = initBaseURI;
@@ -87,24 +88,33 @@ contract GCLX is ERC721A, Ownable {
         uint256 quantity,
         bytes32[] calldata _merkleProof
     ) external payable {
+        bytes32 leaf = keccak256(abi.encodePacked(_msgSender()));
         require(
             status == Status.Started || status == Status.AllowListOnly,
             "GCLX: Hai mei kai shi."
         );
         require(tx.origin == msg.sender, "GCLX: Bu yun xu he yue diao yong.");
-        require(quantity <= MAX_MINT_ALLOWLIST, "GCLX: Nin tai tan xin le.");
         require(
             totalSupply() + quantity <= MAX_SUPPLY,
             "GCLX: Mei zhe me duo le."
         );
-        require(!(allowlistClaimed[_msgSender()]), "GCLX: Ling Guo Le.");
-        bytes32 leaf = keccak256(abi.encodePacked(_msgSender()));
+        require(
+            (allowlistClaimed[_msgSender()] <= MAX_MINT_ALLOWLIST),
+            "GCLX: Ling Guo Le."
+        );
         require(
             MerkleProof.verify(_merkleProof, merkleRoot, leaf),
             "GCLX: Ni bu zai bai ming dan li."
         );
-        allowlistClaimed[_msgSender()] = true;
+        require(
+            quantity <= MAX_MINT_ALLOWLIST - allowlistClaimed[_msgSender()],
+            "GCLX: Nin tai tan xin le."
+        );
+
+        allowlistClaimed[_msgSender()] += quantity;
         _safeMint(_msgSender(), quantity);
+        refundIfOver(PRICE * quantity);
+        emit Minted(msg.sender, quantity);
     }
 
     function numberMinted(address owner) public view returns (uint256) {
@@ -130,6 +140,7 @@ contract GCLX is ERC721A, Ownable {
 
     function setMerkleRoot(bytes32 _merkleRoot) public onlyOwner {
         merkleRoot = _merkleRoot;
+        emit MerkleRootChanged(merkleRoot);
     }
 
     function withdraw(address payable recipient) external onlyOwner {

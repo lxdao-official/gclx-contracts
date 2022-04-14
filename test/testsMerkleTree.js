@@ -66,6 +66,20 @@ describe('contract test - allowList with MerkleProof', function () {
     } catch (e) {
       expect(e.message).to.contain('GCLX: Nin tai tan xin le');
     }
+
+    // mint 1 out of 2
+    await hardhatToken
+      .connect(allowAccount)
+      .allowlistMintMerkleProof(1, proof, {
+        value: ethers.utils.parseEther('0.01'),
+      });
+
+    // can still mint since there is still 1 quota left
+    await hardhatToken
+      .connect(allowAccount)
+      .allowlistMintMerkleProof(1, proof, {
+        value: ethers.utils.parseEther('0.01'),
+      });
   });
 
   it('allowlistMintMerkleProof Test #4 - user can call both allowlistMintMerkleProof and mint functions if status=started', async function () {
@@ -89,24 +103,42 @@ describe('contract test - allowList with MerkleProof', function () {
       expect(e.message).to.contain('GCLX: Zui duo lia');
     }
 
-    // the user can still call allowlistmint() as she is in the allowlist with limit of 2
+    // the user can still call allowlistmint() as she is in the allowlist with quota of 2
     await hardhatToken
       .connect(allowAccount)
       .allowlistMintMerkleProof(2, proof, {
         value: ethers.utils.parseEther('0.02'),
       });
 
-    //the next call should fail as the user has used up her allowlist quota, and is considered removed from allowlist
+    // the next call should fail as the user has used up her allowlist quota
+    try {
+      expect(
+        await hardhatToken
+          .connect(allowAccount)
+          .allowlistMintMerkleProof(1, proof, {
+            value: ethers.utils.parseEther('0.04'),
+          })
+      ).to.throw();
+    } catch (e) {
+      expect(e.message).to.contain('GCLX: Nin tai tan xin le');
+    }
+  });
+
+  it('allowlistMintMerkleProof Test #5 - not enought ETH ', async function () {
+    allowAccount = allowlistAccounts[3];
+    proof = merkleTree.getHexProof(keccak256(allowAccount.address));
+
+    // the next call should fail as the user tries to mint below the preset PRICE
     try {
       expect(
         await hardhatToken
           .connect(allowAccount)
           .allowlistMintMerkleProof(2, proof, {
-            value: ethers.utils.parseEther('0.04'),
+            value: ethers.utils.parseEther('0.01'),
           })
       ).to.throw();
     } catch (e) {
-      expect(e.message).to.contain('GCLX: Ling Guo Le');
+      expect(e.message).to.contain('GCLX: Mei duo gei ETH.');
     }
   });
 });

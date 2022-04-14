@@ -120,7 +120,7 @@ describe('contract test - allowList with MerkleProof', function () {
           })
       ).to.throw();
     } catch (e) {
-      expect(e.message).to.contain('GCLX: Nin tai tan xin le');
+      expect(e.message).to.contain('GCLX: Ling guo le');
     }
   });
 
@@ -128,7 +128,7 @@ describe('contract test - allowList with MerkleProof', function () {
     allowAccount = allowlistAccounts[3];
     proof = merkleTree.getHexProof(keccak256(allowAccount.address));
 
-    // the next call should fail as the user tries to mint below the preset PRICE
+    // the next call should fail as the user tries to mint below the PRICE
     try {
       expect(
         await hardhatToken

@@ -99,8 +99,8 @@ contract GCLX is ERC721A, Ownable {
             "GCLX: Mei zhe me duo le."
         );
         require(
-            (allowlistClaimed[_msgSender()] <= MAX_MINT_ALLOWLIST),
-            "GCLX: Ling Guo Le."
+            (allowlistClaimed[_msgSender()] < MAX_MINT_ALLOWLIST),
+            "GCLX: Ling guo le."
         );
         require(
             MerkleProof.verify(_merkleProof, merkleRoot, leaf),

@@ -66,12 +66,8 @@ npm install
 
 我们之后会出一系列关于如何从头开始创建一个 NFT 项目的文章、教程，会有具体的流程和代码分析，想要第一时间知道，请关注官方推特：[@gclxnft](https://twitter.com/gclxnft)。
 
-### 关于作者
+## What is LXDAO?
 
-我是 Muxin。Web2 前端工程师 / Web3 艺术家 / Web3 准合约工程师，欢迎关注我的推特：<https://twitter.com/muxin_eth>。
+LXDAO is an R&D-focused DAO in Web3. Our mission is: To bring together buidlers to buidl and maintain valuable projects for Web3, in a sustainable manner.
 
-如果你在这个项目收获了很多，比如拿去做外包赚了不少钱，求求你行行好，捐赠一点 ETH 给我吧。你要是富豪，喜欢我的作品，也可以捐赠。捐赠地址：muxin.eth，说不定未来突然发现多了什么空投呢。
-
-### 特别鸣谢：
-
-因为本人 Web3 经验不足，从 2022 年 2 月 16 日才开始学习写合约，收到了 shep.eth 和 bruce.eth 的很多帮助和指导，特此表达感谢！
+<a target="_blank" href="https://lxdao.io/"><img alt="Buidl in LXDAO" src="public/buildinlxdao.png" width="180" /></a>

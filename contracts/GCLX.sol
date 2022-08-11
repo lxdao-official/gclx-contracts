@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.2;
+pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "erc721a/contracts/ERC721A.sol";
 
 contract GCLX is ERC721A, Ownable {
@@ -14,73 +15,126 @@ contract GCLX is ERC721A, Ownable {
 
     Status public status;
     string public baseURI;
-    uint256 public constant MAX_MINT_PER_ADDR = 2;
-    uint256 public constant MAX_SUPPLY = 1000;
-    uint256 public constant PRICE = 0.01 * 10**18; // 0.01 ETH
 
-    mapping(address => uint256) public allowlist;
+    // moving all configs under a 256 bit space to save cost
+    struct Config {
+        uint64 allowlistPrice;
+        uint64 publicPrice;
+        uint16 maxSupply;
+        uint16 maxQuantityPerAllowlist; // max quantity per allowlist address
+        uint16 maxQuantityPerPublic; // max quantity per public mint address
+        uint80 misc; // available padding bits,
+    }
+    Config public config;
+    bytes32 public merkleRoot;
 
+    // EVENTS
     event Minted(address minter, uint256 amount);
-    event StatusChanged(Status status);
     event BaseURIChanged(string newBaseURI);
+    event StatusChanged(Status status);
+    event MerkleRootChanged(bytes32 merkleRoot);
 
+    // CONSTRUCTOR
     constructor(string memory initBaseURI) ERC721A("GuoChanLiangXin", "GCLX") {
         baseURI = initBaseURI;
+        config.allowlistPrice = 0.005 ether;
+        config.publicPrice = 0.01 ether;
+        config.maxSupply = 1000;
+        config.maxQuantityPerAllowlist = 2;
+        config.maxQuantityPerPublic = 2;
+    }
+
+    // MODIFIERS
+    function mintComplianceBase(uint256 _qunatity) public view {
+        require(
+            totalSupply() + _qunatity <= config.maxSupply,
+            "GCLX: Mei zhe me duo le."
+        );
+    }
+
+    modifier mintComplianceForPublic(uint256 _qunatity) {
+        mintComplianceBase(_qunatity);
+        require(status == Status.Started, "GCLX: Hai mei kai shi");
+        require(
+            numberMintedForPublic(msg.sender) + _qunatity <=
+                config.maxQuantityPerPublic,
+            "GCLX: Zui duo lia"
+        );
+        _;
+    }
+
+    modifier mintComplianceForAllowList(uint256 _qunatity) {
+        mintComplianceBase(_qunatity);
+        require(
+            status == Status.AllowListOnly || status == Status.Started,
+            "GCLX: Hai mei kai shi."
+        );
+        require(
+            numberMintedForAllowList(msg.sender) + _qunatity <=
+                config.maxQuantityPerAllowlist,
+            "GCLX: Zui duo lia(bai ming dan)"
+        );
+        _;
+    }
+
+    modifier OnlyInAllowList(address owner, bytes32[] calldata _merkleProof) {
+        bytes32 leaf = keccak256(abi.encodePacked(owner));
+        require(
+            MerkleProof.verify(_merkleProof, merkleRoot, leaf),
+            "GCLX: Ni bu zai bai ming dan li."
+        );
+        _;
+    }
+
+    modifier OnlyUser() {
+        require(tx.origin == msg.sender, "GCLX: Bu yun xu he yue diao yong.");
+        _;
     }
 
     function _baseURI() internal view override returns (string memory) {
         return baseURI;
     }
 
-    function mint(uint256 quantity) external payable {
-        require(status == Status.Started, "GCLX: Hai mei kai shi.");
-        require(tx.origin == msg.sender, "GCLX: Bu yun xu he yue diao yong.");
-        require(
-            numberMinted(msg.sender) + quantity <= MAX_MINT_PER_ADDR,
-            "GCLX: Zui duo lia."
-        );
-        require(
-            totalSupply() + quantity <= MAX_SUPPLY,
-            "GCLX: Mei zhe me duo le."
-        );
-
+    // MINTING LOGICS
+    function mint(uint256 quantity)
+        external
+        payable
+        OnlyUser
+        mintComplianceForPublic(quantity)
+    {
         _safeMint(msg.sender, quantity);
-        refundIfOver(PRICE * quantity);
-
+        refundIfOver(config.publicPrice * quantity);
         emit Minted(msg.sender, quantity);
     }
 
-    function allowlistMint(uint256 quantity) external payable {
-        require(allowlist[msg.sender] > 0, "GCLX: Ni bu zai bai ming dan li.");
-        require(
-            status == Status.Started || status == Status.AllowListOnly,
-            "GCLX: Hai mei kai shi."
-        );
-        require(tx.origin == msg.sender, "GCLX: Bu yun xu he yue diao yong.");
-        require(quantity <= allowlist[msg.sender], "GCLX: Nin tai tan xin le.");
-        require(
-            totalSupply() + quantity <= MAX_SUPPLY,
-            "GCLX: Mei zhe me duo le."
-        );
-        allowlist[msg.sender] = allowlist[msg.sender] - quantity;
-        _safeMint(msg.sender, quantity);
-        refundIfOver(PRICE * quantity);
-
+    function allowlistMint(uint256 quantity, bytes32[] calldata _merkleProof)
+        external
+        payable
+        OnlyUser
+        OnlyInAllowList(_msgSender(), _merkleProof)
+        mintComplianceForAllowList(quantity)
+    {
+        // Use Aux to store # of minted for allow list
+        _setAux(_msgSender(), _getAux(_msgSender()) + uint64(quantity));
+        _safeMint(_msgSender(), quantity);
+        refundIfOver(config.allowlistPrice * quantity);
         emit Minted(msg.sender, quantity);
     }
 
-    function seedAllowlist(
-        address[] memory addresses,
-        uint256[] memory numSlots
-    ) external onlyOwner {
-        require(addresses.length == numSlots.length, "GCLX: di zhi bu dui.");
-        for (uint256 i = 0; i < addresses.length; i++) {
-            allowlist[addresses[i]] = numSlots[i];
-        }
+    function numberMintedForPublic(address owner)
+        public
+        view
+        returns (uint256)
+    {
+        return _numberMinted(owner) - uint256(_getAux(owner));
     }
 
-    function numberMinted(address owner) public view returns (uint256) {
-        return _numberMinted(owner);
+    function numberMintedForAllowList(address owner)
+        public
+        view
+        returns (uint256)
+    {
+        return uint256(_getAux(owner));
     }
 
     function refundIfOver(uint256 price) private {
@@ -90,6 +144,7 @@ contract GCLX is ERC721A, Ownable {
         }
     }
 
+    // SETTERS
     function setStatus(Status _status) external onlyOwner {
         status = _status;
         emit StatusChanged(status);
@@ -100,6 +155,36 @@ contract GCLX is ERC721A, Ownable {
         emit BaseURIChanged(newBaseURI);
     }
 
+    function setMerkleRoot(bytes32 _merkleRoot) public onlyOwner {
+        merkleRoot = _merkleRoot;
+        emit MerkleRootChanged(merkleRoot);
+    }
+
+    function setMaxSupply(uint256 _maxSupply) public onlyOwner {
+        require(
+            _maxSupply < config.maxSupply,
+            "LED: Cannot increase the supply"
+        );
+        config.maxSupply = uint16(_maxSupply);
+    }
+
+    function setMaxQuantiyPerAddress(
+        uint256 _maxQuantityPerAllowlist,
+        uint256 _maxQuantityPerPublic
+    ) public onlyOwner {
+        config.maxQuantityPerAllowlist = uint16(_maxQuantityPerAllowlist);
+        config.maxQuantityPerPublic = uint16(_maxQuantityPerPublic);
+    }
+
+    function setPrice(uint256 _allowlistPrice, uint256 _publicPrice)
+        public
+        onlyOwner
+    {
+        config.allowlistPrice = uint64(_allowlistPrice);
+        config.publicPrice = uint64(_publicPrice);
+    }
+
+    // WITHDRAW
     function withdraw(address payable recipient) external onlyOwner {
         uint256 balance = address(this).balance;
         (bool success, ) = recipient.call{value: balance}("");

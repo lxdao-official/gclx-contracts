@@ -27,6 +27,7 @@
     "@nomiclabs/hardhat-etherscan": "^3.0.3",
     "@openzeppelin/contracts": "^4.5.0",
     "erc721a": "^3.0.0",
-    "hardhat-gas-reporter": "^1.0.8"
+    "hardhat-gas-reporter": "^1.0.8",
+    "merkletreejs": "^0.2.31"
   }
 }
